@@ -1,6 +1,9 @@
 # nand2tetris-vmtranslator
 VM Translator for Nand2Tetris course, written in C++
 
+## Requirements
+g++ compiler
+
 ## Installation
 ```
 git clone https://github.com/Arcademic/nand2tetris-vmtranslator.git
