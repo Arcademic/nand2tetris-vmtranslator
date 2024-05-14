@@ -22,6 +22,9 @@ static const std::string PUSH_TMP_ASM[] = {"@", "\nD=M\n@SP\nA=M\nM=D\n@SP\nM=M+
 static const std::regex PUSH_STATIC_VM(R"(^push\s+static\s+(\d+)$)");
 static const std::string PUSH_STATIC_ASM[] = {"@", "\nD=M\n@SP\nA=M\nM=D\n@SP\nM=M+1\n"};
 
+static const std::regex PUSH_PTR_VM(R"(^push\s+pointer\s+(\d+)$)");
+static const std::string PUSH_PTR_ASM[] = {"@", "\nD=M\n@SP\nA=M\nM=D\n@SP\nM=M+1\n"};
+
 static const std::regex POP_SGMT_VM(R"(^pop\s+(local|argument|this|that)\s+(\d+)$)");
 static const std::string POP_SGMT_ASM[] = {
     "@SP\nAM=M-1\nD=M\n@R13\nM=D\n@", "\nD=A\n@",
@@ -32,6 +35,9 @@ static const std::string POP_TMP_ASM[] = {"@SP\nAM=M-1\nD=M\n@", "\nM=D\n"};
 
 static const std::regex POP_STATIC_VM(R"(^pop\s+static\s+(\d+)$)");
 static const std::string POP_STATIC_ASM[] = {"@SP\nAM=M-1\nD=M\n@", "\nM=D\n"};
+
+static const std::regex POP_PTR_VM(R"(^pop\s+pointer\s+(\d+)$)");
+static const std::string POP_PTR_ASM[] = {"@SP\nAM=M-1\nD=M\n@", "\nM=D\n"};
 
 static const std::regex BINARY_OP_VM(R"(^add|sub|and|or$)");
 static const std::string BINARY_OP_ASM[] = {"@SP\nAM=M-1\nD=M\nA=A-1\nM=M", "D\n"};
@@ -117,6 +123,12 @@ public:
                 write_push_static(arg);
                 continue;
             }
+            if (std::regex_match(line, regex_match_results, PUSH_PTR_VM))
+            {
+                int arg = std::stoi(regex_match_results[1].str());
+                write_push_pointer(arg);
+                continue;
+            }
 
             // handle pop command
             if (std::regex_match(line, regex_match_results, POP_SGMT_VM))
@@ -136,6 +148,12 @@ public:
             {
                 int arg = std::stoi(regex_match_results[1].str());
                 write_pop_static(arg);
+                continue;
+            }
+            if (std::regex_match(line, regex_match_results, POP_PTR_VM))
+            {
+                int arg = std::stoi(regex_match_results[1].str());
+                write_pop_pointer(arg);
                 continue;
             }
 
@@ -201,9 +219,18 @@ private:
     std::stringstream &write_push_static(int i)
     {
         output_stream
-            << PUSH_TMP_ASM[0]
+            << PUSH_STATIC_ASM[0]
             << class_name << '.' << std::to_string(i)
-            << PUSH_TMP_ASM[1];
+            << PUSH_STATIC_ASM[1];
+        return output_stream;
+    }
+
+    std::stringstream &write_push_pointer(int i)
+    {
+        output_stream
+            << PUSH_PTR_ASM[0]
+            << std::to_string(i+3)
+            << PUSH_PTR_ASM[1];
         return output_stream;
     }
 
@@ -233,6 +260,15 @@ private:
             << POP_STATIC_ASM[0]
             << class_name << '.' << std::to_string(i)
             << POP_STATIC_ASM[1];
+        return output_stream;
+    }
+
+    std::stringstream &write_pop_pointer(int i)
+    {
+        output_stream
+            << POP_PTR_ASM[0]
+            << std::to_string(i+3)
+            << POP_PTR_ASM[1];
         return output_stream;
     }
 
