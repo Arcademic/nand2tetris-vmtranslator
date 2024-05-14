@@ -2,7 +2,7 @@
 VM Translator for Nand2Tetris course, written in C++
 
 ## Requirements
-g++ compiler
+gcc
 
 ## Installation
 ```
