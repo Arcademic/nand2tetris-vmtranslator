@@ -8,44 +8,44 @@
 
 #include <iostream>
 
-static const std::regex PUSH_CONST_VM(R"(^push\s+constant\s+(\d+)$)");
+static const std::regex PUSH_CONST_VM(R"(^\s*push\s+constant\s+(\d+)\s*$)");
 static const std::string PUSH_CONST_ASM[] = {"@", "\nD=A\n@SP\nA=M\nM=D\n@SP\nM=M+1\n"};
 
-static const std::regex PUSH_SGMT_VM(R"(^push\s+(local|argument|this|that)\s+(\d+)$)");
+static const std::regex PUSH_SGMT_VM(R"(^\s*push\s+(local|argument|this|that)\s+(\d+)\s*$)");
 static const std::string PUSH_SGMT_ASM[] = {
     "@", "\nD=A\n@",
     "\nA=M+D\nD=M\n@SP\nA=M\nM=D\n@SP\nM=M+1\n"};
 
-static const std::regex PUSH_TMP_VM(R"(^push\s+temp\s+(\d+)$)");
+static const std::regex PUSH_TMP_VM(R"(^\s*push\s+temp\s+(\d+)\s*$)");
 static const std::string PUSH_TMP_ASM[] = {"@", "\nD=M\n@SP\nA=M\nM=D\n@SP\nM=M+1\n"};
 
-static const std::regex PUSH_STATIC_VM(R"(^push\s+static\s+(\d+)$)");
+static const std::regex PUSH_STATIC_VM(R"(^\s*push\s+static\s+(\d+)\s*$)");
 static const std::string PUSH_STATIC_ASM[] = {"@", "\nD=M\n@SP\nA=M\nM=D\n@SP\nM=M+1\n"};
 
-static const std::regex PUSH_PTR_VM(R"(^push\s+pointer\s+(\d+)$)");
+static const std::regex PUSH_PTR_VM(R"(^\s*push\s+pointer\s+(\d+)\s*$)");
 static const std::string PUSH_PTR_ASM[] = {"@", "\nD=M\n@SP\nA=M\nM=D\n@SP\nM=M+1\n"};
 
-static const std::regex POP_SGMT_VM(R"(^pop\s+(local|argument|this|that)\s+(\d+)$)");
+static const std::regex POP_SGMT_VM(R"(^\s*pop\s+(local|argument|this|that)\s+(\d+)\s*$)");
 static const std::string POP_SGMT_ASM[] = {
     "@SP\nAM=M-1\nD=M\n@R13\nM=D\n@", "\nD=A\n@",
     "\nD=M+D\n@R14\nM=D\n@R13\nD=M\n@R14\nA=M\nM=D\n"};
 
-static const std::regex POP_TMP_VM(R"(^pop\s+temp\s+(\d+)$)");
+static const std::regex POP_TMP_VM(R"(^\s*pop\s+temp\s+(\d+)\s*$)");
 static const std::string POP_TMP_ASM[] = {"@SP\nAM=M-1\nD=M\n@", "\nM=D\n"};
 
-static const std::regex POP_STATIC_VM(R"(^pop\s+static\s+(\d+)$)");
+static const std::regex POP_STATIC_VM(R"(^\s*pop\s+static\s+(\d+)\s*$)");
 static const std::string POP_STATIC_ASM[] = {"@SP\nAM=M-1\nD=M\n@", "\nM=D\n"};
 
-static const std::regex POP_PTR_VM(R"(^pop\s+pointer\s+(\d+)$)");
+static const std::regex POP_PTR_VM(R"(^\s*pop\s+pointer\s+(\d+)\s*$)");
 static const std::string POP_PTR_ASM[] = {"@SP\nAM=M-1\nD=M\n@", "\nM=D\n"};
 
-static const std::regex BINARY_OP_VM(R"(^add|sub|and|or$)");
+static const std::regex BINARY_OP_VM(R"(^\s*add|sub|and|or\s*$)");
 static const std::string BINARY_OP_ASM[] = {"@SP\nAM=M-1\nD=M\nA=A-1\nM=M", "D\n"};
 
-static const std::regex UNARY_OP_VM(R"(^neg|not$)");
+static const std::regex UNARY_OP_VM(R"(^\s*neg|not\s*$)");
 static const std::string UNARY_OP_ASM[] = {"@SP\nA=M-1\nM=", "M\n"};
 
-static const std::regex BOOL_OP_VM(R"(^eq|gt|lt$)");
+static const std::regex BOOL_OP_VM(R"(^\s*eq|gt|lt\s*$)");
 static const std::string BOOL_OP_ASM[] = {
     "@SP\nAM=M-1\nD=M\nA=A-1\nD=M-D\n@", "\nD;",
     "\n@SP\nA=M-1\nM=0\n@", "\n0;JMP\n(",
@@ -53,21 +53,29 @@ static const std::string BOOL_OP_ASM[] = {
 static const std::string COND_LABEL = "COND";
 static const std::string END_LABEL = "END";
 
+
+// add filename to LABELS
+static const std::regex LABEL_VM(R"(^\s*label\s+(string_regex)\s*$)"); // add string regex
+
+static const std::regex IF_GOTO_VM(R"(^\s*if-goto\s+(string_regex)\s*$)");
+
+static const std::regex GOTO_VM(R"(^\s*goto\s+(string_regex)\s*$)");
+
 static int LABEL_COUNT = 0;
 
 static const std::unordered_map<std::string, std::string> SGMT_MAP =
     {
-        {"local", "LCL"},
+        {"local",    "LCL"},
         {"argument", "ARG"},
-        {"this", "THIS"},
-        {"that", "THAT"},
+        {"this",     "THIS"},
+        {"that",     "THAT"},
 };
 static const std::unordered_map<std::string, std::string> OPERATOR_MAP =
     {
         {"add", "+"},
         {"sub", "-"},
         {"and", "&"},
-        {"or", "|"},
+        {"or",  "|"},
         {"neg", "-"},
         {"not", "!"},
 };
