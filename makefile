@@ -1,5 +1,5 @@
 CXX = g++
-CXXFLAGS = -Wall -g
+CXXFLAGS = -Wall -g -std=c++17
 SRCDIR = src/
 BINDIR = target/
 MAIN = $(BINDIR)vmtranslator
