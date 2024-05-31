@@ -47,20 +47,21 @@ static const std::string UNARY_OP_ASM[] = {"@SP\nA=M-1\nM=", "M\n"};
 
 static const std::regex BOOL_OP_VM(R"(^\s*eq|gt|lt\s*$)");
 static const std::string BOOL_OP_ASM[] = {
-    "@SP\nAM=M-1\nD=M\nA=A-1\nD=M-D\n@", "\nD;",
-    "\n@SP\nA=M-1\nM=0\n@", "\n0;JMP\n(",
-    ")\n@SP\nA=M-1\nM=-1\n(", ")\n"};
-static const std::string COND_LABEL = "COND";
-static const std::string END_LABEL = "END";
+    "@SP\nAM=M-1\nD=M\nA=A-1\nD=M-D\n@COND", "\nD;",
+    "\n@SP\nA=M-1\nM=0\n@END", "\n0;JMP\n(COND",
+    ")\n@SP\nA=M-1\nM=-1\n(END", ")\n"};
 
+static const std::regex LABEL_VM(R"(^\s*label\s+(.*)\s*$)");
+static const std::string LABEL_ASM[] = {"(", ")\n"};
 
-// add filename to LABELS
-static const std::regex LABEL_VM(R"(^\s*label\s+(string_regex)\s*$)"); // add string regex
+static const std::regex IF_GOTO_VM(R"(^\s*if-goto\s+(.*)\s*$)");
+static const std::string IF_GOTO_ASM[] = {
+    "@SP\nAM=M-1\nD=M\n@END", "\nD;JEQ\n@", "\n0;JMP\n(END", ")\n"};
 
-static const std::regex IF_GOTO_VM(R"(^\s*if-goto\s+(string_regex)\s*$)");
+static const std::regex GOTO_VM(R"(^\s*goto\s+(.*)\s*$)");
+static const std::string GOTO_ASM[] = {"@", "\n0;JMP\n"};
 
-static const std::regex GOTO_VM(R"(^\s*goto\s+(string_regex)\s*$)");
-
+// TODO label in VM code could coincide with generated label name
 static int LABEL_COUNT = 0;
 
 static const std::unordered_map<std::string, std::string> SGMT_MAP =
@@ -185,6 +186,26 @@ public:
                 write_boolean_op(JUMP_MAP.at(line));
                 continue;
             }
+
+            // handle branching
+            if (std::regex_match(line, regex_match_results, LABEL_VM))
+            {
+                std::string label = regex_match_results[1];
+                write_label(label);
+                continue;
+            }
+            if (std::regex_match(line, regex_match_results, IF_GOTO_VM))
+            {
+                std::string label = regex_match_results[1];
+                write_if_goto(label);
+                continue;
+            }
+            if (std::regex_match(line, regex_match_results, GOTO_VM))
+            {
+                std::string label = regex_match_results[1];
+                write_goto(label);
+                continue;
+            }
         }
 
         return output_stream.str();
@@ -303,18 +324,50 @@ private:
         auto label_count_str = std::to_string(LABEL_COUNT);
         output_stream
             << BOOL_OP_ASM[0]
-            << COND_LABEL << label_count_str
+            << label_count_str
             << BOOL_OP_ASM[1]
             << cond
             << BOOL_OP_ASM[2]
-            << END_LABEL << label_count_str
+            << label_count_str
             << BOOL_OP_ASM[3]
-            << COND_LABEL << label_count_str
+            << label_count_str
             << BOOL_OP_ASM[4]
-            << END_LABEL << label_count_str
+            << label_count_str
             << BOOL_OP_ASM[5];
 
         ++LABEL_COUNT;
+        return output_stream;
+    }
+
+    std::stringstream &write_label(std::string label)
+    {
+        output_stream
+            << LABEL_ASM[0]
+            << class_name << '.' << label
+            << LABEL_ASM[1];
+        return output_stream;
+    }
+
+    std::stringstream &write_if_goto(std::string label)
+    {
+        auto label_count_str = std::to_string(LABEL_COUNT);
+        output_stream
+            << IF_GOTO_ASM[0]
+            << label_count_str
+            << IF_GOTO_ASM[1]
+            << class_name << '.' << label
+            << IF_GOTO_ASM[2]
+            << label_count_str
+            << IF_GOTO_ASM[3];
+        return output_stream;
+    }
+
+    std::stringstream &write_goto(std::string label)
+    {
+        output_stream
+            << GOTO_ASM[0]
+            << class_name << '.' << label
+            << GOTO_ASM[1];
         return output_stream;
     }
 };
