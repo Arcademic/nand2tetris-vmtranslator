@@ -1,5 +1,7 @@
 .vscode/
-tests/
+test_files/
+test/
+tools/
 standard/
 src/main.o
 src/parser.o
