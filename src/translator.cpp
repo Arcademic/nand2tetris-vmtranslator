@@ -98,6 +98,10 @@ public:
     {
         input_stream << input;
         class_name = name;
+
+        if (class_name == "Main") {
+            write_init();
+        }
     }
 
     std::string translated()
@@ -241,6 +245,17 @@ private:
     std::stringstream output_stream;
     std::string class_name;
 
+    std::stringstream &write_init()
+    {
+        output_stream
+            << "@256\n"
+            << "D=A\n"
+            << "@SP\n"
+            << "M=D\n";
+        write_call("Sys.init", 0);
+        return output_stream;
+    }
+
     std::stringstream &write_push_const(std::string i)
     {
         output_stream
@@ -346,17 +361,18 @@ private:
 
     std::stringstream &write_boolean_op(std::string cond)
     {
+        std::string label_count_str = std::to_string(LABEL_COUNT);
         output_stream
             << BOOL_OP_ASM[0]
-            << LABEL_COUNT
+            << label_count_str
             << BOOL_OP_ASM[1]
             << cond
             << BOOL_OP_ASM[2]
-            << LABEL_COUNT
+            << label_count_str
             << BOOL_OP_ASM[3]
-            << LABEL_COUNT
+            << label_count_str
             << BOOL_OP_ASM[4]
-            << LABEL_COUNT
+            << label_count_str
             << BOOL_OP_ASM[5];
 
         ++LABEL_COUNT;
@@ -392,27 +408,28 @@ private:
 
     std::stringstream &write_call(std::string function, int nArgs)
     {
-        write_push_const("return") << LABEL_COUNT;
+        std::string label_count_str = std::to_string(LABEL_COUNT);
+        write_push_const("return" + label_count_str);
         write_push_addr("LCL");
         write_push_addr("ARG");
         write_push_addr("THIS");
         write_push_addr("THAT")
-            << "@SP"
-            << "D=M"
-            << "@5"
-            << "D=D-A"
-            << "@" << nArgs
-            << "D=D-A"
-            << "@ARG"
-            << "M=D"
-            << "@SP"
-            << "D=M"
-            << "@LCL"
-            << "M=D";
+            << "@SP\n"
+            << "D=M\n"
+            << "@5\n"
+            << "D=D-A\n"
+            << "@" << nArgs << '\n'
+            << "D=D-A\n"
+            << "@ARG\n"
+            << "M=D\n"
+            << "@SP\n"
+            << "D=M\n"
+            << "@LCL\n"
+            << "M=D\n";
         write_goto(function)
             << '('
-            << "return" << LABEL_COUNT
-            << ')';
+            << "return" + label_count_str
+            << ")\n";
         
         ++LABEL_COUNT;
         return output_stream;
@@ -451,13 +468,13 @@ private:
     std::stringstream &write_push_addr(std::string addr)
     {
         output_stream
-            << "@" << addr
-            << "D=M"
-            << "@SP"
-            << "A=M"
-            << "M=D"
-            << "@SP"
-            << "M=M+1";
+            << "@" << addr << '\n'
+            << "D=M\n"
+            << "@SP\n"
+            << "A=M\n"
+            << "M=D\n"
+            << "@SP\n"
+            << "M=M+1\n";
         return output_stream;
     }
 
