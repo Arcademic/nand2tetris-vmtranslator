@@ -55,13 +55,17 @@ static const std::regex LABEL_VM(R"(^\s*label\s+(.*)\s*$)");
 static const std::string LABEL_ASM[] = {"(", ")\n"};
 
 static const std::regex IF_GOTO_VM(R"(^\s*if-goto\s+(.*)\s*$)");
-static const std::string IF_GOTO_ASM[] = {
-    "@SP\nAM=M-1\nD=M\n@END", "\nD;JEQ\n@", "\n0;JMP\n(END", ")\n"};
+static const std::string IF_GOTO_ASM[] = {"@SP\nAM=M-1\nD=M\n@", "\nD;JNE"};
 
 static const std::regex GOTO_VM(R"(^\s*goto\s+(.*)\s*$)");
 static const std::string GOTO_ASM[] = {"@", "\n0;JMP\n"};
 
-// TODO label in VM code could coincide with generated label name
+static const std::regex CALL_VM(R"(^\s*call\s+(.*)\s+(\d+)\s*$)");
+
+static const std::regex FUNC_VM(R"(^\s*function\s+(.*)\s+(\d+)\s*$)");
+
+static const std::regex RET_VM(R"(^\s*return\s*$)");
+
 static int LABEL_COUNT = 0;
 
 static const std::unordered_map<std::string, std::string> SGMT_MAP =
@@ -109,7 +113,7 @@ public:
             // handle push command
             if (std::regex_match(line, regex_match_results, PUSH_CONST_VM))
             {
-                int arg = std::stoi(regex_match_results[1].str());
+                std::string arg = regex_match_results[1];
                 write_push_const(arg);
                 continue;
             }
@@ -144,7 +148,7 @@ public:
             {
                 auto seg = regex_match_results[1].str();
                 auto arg = std::stoi(regex_match_results[2].str());
-                write_pop_seg(arg, SGMT_MAP.at(seg));
+                write_pop_seg(SGMT_MAP.at(seg), arg);
                 continue;
             }
             if (std::regex_match(line, regex_match_results, POP_TMP_VM))
@@ -191,19 +195,40 @@ public:
             if (std::regex_match(line, regex_match_results, LABEL_VM))
             {
                 std::string label = regex_match_results[1];
-                write_label(label);
+                write_label(class_name + '.' + label);
                 continue;
             }
             if (std::regex_match(line, regex_match_results, IF_GOTO_VM))
             {
                 std::string label = regex_match_results[1];
-                write_if_goto(label);
+                write_if_goto(class_name + '.' + label);
                 continue;
             }
             if (std::regex_match(line, regex_match_results, GOTO_VM))
             {
                 std::string label = regex_match_results[1];
-                write_goto(label);
+                write_goto(class_name + '.' + label);
+                continue;
+            }
+
+            // handle functions
+            if (std::regex_match(line, regex_match_results, CALL_VM))
+            {
+                std::string function = regex_match_results[1];
+                int nArgs = std::stoi(regex_match_results[2]);
+                write_call(function, nArgs);
+                continue;
+            }
+            if (std::regex_match(line, regex_match_results, FUNC_VM))
+            {
+                std::string function = regex_match_results[1];
+                int nVars = std::stoi(regex_match_results[2]);
+                write_function(function, nVars);
+                continue;
+            }
+            if (std::regex_match(line, regex_match_results, RET_VM))
+            {
+                write_return();
                 continue;
             }
         }
@@ -216,11 +241,11 @@ private:
     std::stringstream output_stream;
     std::string class_name;
 
-    std::stringstream &write_push_const(int i)
+    std::stringstream &write_push_const(std::string i)
     {
         output_stream
             << PUSH_CONST_ASM[0]
-            << std::to_string(i)
+            << i
             << PUSH_CONST_ASM[1];
         return output_stream;
     }
@@ -263,7 +288,7 @@ private:
         return output_stream;
     }
 
-    std::stringstream &write_pop_seg(int i, std::string seg)
+    std::stringstream &write_pop_seg(std::string seg, int i)
     {
         output_stream
             << POP_SGMT_ASM[0]
@@ -321,18 +346,17 @@ private:
 
     std::stringstream &write_boolean_op(std::string cond)
     {
-        auto label_count_str = std::to_string(LABEL_COUNT);
         output_stream
             << BOOL_OP_ASM[0]
-            << label_count_str
+            << LABEL_COUNT
             << BOOL_OP_ASM[1]
             << cond
             << BOOL_OP_ASM[2]
-            << label_count_str
+            << LABEL_COUNT
             << BOOL_OP_ASM[3]
-            << label_count_str
+            << LABEL_COUNT
             << BOOL_OP_ASM[4]
-            << label_count_str
+            << LABEL_COUNT
             << BOOL_OP_ASM[5];
 
         ++LABEL_COUNT;
@@ -343,22 +367,17 @@ private:
     {
         output_stream
             << LABEL_ASM[0]
-            << class_name << '.' << label
+            << label
             << LABEL_ASM[1];
         return output_stream;
     }
 
     std::stringstream &write_if_goto(std::string label)
     {
-        auto label_count_str = std::to_string(LABEL_COUNT);
         output_stream
             << IF_GOTO_ASM[0]
-            << label_count_str
-            << IF_GOTO_ASM[1]
-            << class_name << '.' << label
-            << IF_GOTO_ASM[2]
-            << label_count_str
-            << IF_GOTO_ASM[3];
+            << label
+            << IF_GOTO_ASM[1];
         return output_stream;
     }
 
@@ -366,8 +385,90 @@ private:
     {
         output_stream
             << GOTO_ASM[0]
-            << class_name << '.' << label
+            << label
             << GOTO_ASM[1];
+        return output_stream;
+    }
+
+    std::stringstream &write_call(std::string function, int nArgs)
+    {
+        write_push_const("return") << LABEL_COUNT;
+        write_push_addr("LCL");
+        write_push_addr("ARG");
+        write_push_addr("THIS");
+        write_push_addr("THAT")
+            << "@SP"
+            << "D=M"
+            << "@5"
+            << "D=D-A"
+            << "@" << nArgs
+            << "D=D-A"
+            << "@ARG"
+            << "M=D"
+            << "@SP"
+            << "D=M"
+            << "@LCL"
+            << "M=D";
+        write_goto(function)
+            << '('
+            << "return" << LABEL_COUNT
+            << ')';
+        
+        ++LABEL_COUNT;
+        return output_stream;
+    }
+
+    std::stringstream &write_function(std::string function, int nVars)
+    {
+        write_label(function);
+        for (int i=0; i<nVars; ++i) {
+            write_push_const("0");
+        }
+        return output_stream;
+    }
+
+    std::stringstream &write_return()
+    {
+        output_stream
+            << "@LCL\n"
+            << "D=M\n"
+            << "@R15\n"
+            << "M=D\n";
+        write_pop_seg("ARG", 0)
+            << "@ARG\n"
+            << "D=M+1\n"
+            << "@SP\n"
+            << "M=D\n";
+        write_restore_addr("THAT");
+        write_restore_addr("THIS");
+        write_restore_addr("ARG");
+        write_restore_addr("LCL")
+            << "@R13\n"
+            << "A=M-1;JMP\n";
+        return output_stream;
+    }
+
+    std::stringstream &write_push_addr(std::string addr)
+    {
+        output_stream
+            << "@" << addr
+            << "D=M"
+            << "@SP"
+            << "A=M"
+            << "M=D"
+            << "@SP"
+            << "M=M+1";
+        return output_stream;
+    }
+
+    std::stringstream &write_restore_addr(std::string addr)
+    {
+        output_stream
+            << "@R15\n"
+            << "AM=M-1\n"
+            << "D=M\n"
+            << "@" << addr << '\n'
+            << "M=D\n";
         return output_stream;
     }
 };
