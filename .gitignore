@@ -2,6 +2,7 @@
 test_files/
 test/
 tools/
+target/
 standard/
 src/main.o
 src/parser.o
