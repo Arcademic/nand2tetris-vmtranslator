@@ -3,7 +3,7 @@ CXXFLAGS = -Wall -g -std=c++17
 SRCDIR = src/
 BINDIR = target/
 MAIN = $(BINDIR)vmtranslator
-SRCS = $(SRCDIR)main.cpp $(SRCDIR)parser.cpp $(SRCDIR)translator.cpp
+SRCS = $(SRCDIR)main.cpp $(SRCDIR)parser.cpp $(SRCDIR)code_writer.cpp
 OBJS = $(SRCS:.cpp=.o)
 
 .PHONY: clean all

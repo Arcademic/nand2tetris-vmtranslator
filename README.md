@@ -12,7 +12,14 @@ make
 ```
 
 ## Usage
+For translating a single VM file:
 ```
 cd target
 ./vmtranslator path/to/file.vm
 ```
+For translating multiple VM files:
+```
+cd target
+./vmtranslator path/to/dir
+```
+Bootstrap code is only generated when providing a directory
