@@ -433,9 +433,6 @@ private:
         return output_stream;
     }
 
-	// writeGoto(name);
-	// writeLabel(retAddressLabel);
-
     stringstream &write_function(string function, int nVars)
     {
         write_label(function);
